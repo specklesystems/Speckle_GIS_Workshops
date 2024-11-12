@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SpeckleCon2024 GIS demo</title>
+  <style type="text/css">
+    html,body{margin:0px;height:100%;width:100%}
+    .container{width:100%;height:100%}
+  </style>
+  <script src="https://unpkg.com/deck.gl@latest/dist.min.js"></script>
+  <body>
+    <script>
+        (async () => {
+            // provide your API key to HERE API
+            const TRAFFIC_API_KEY = "41_ea6vX0sH8ec-wbRIEzUKt9tCUbW4rXDUeObNKoUc" // disposable key, replace with yours
+            
+            // specify the traffic query extent
+            center_x = 26.716031460406192
+            center_y = 58.37359442585144
+            buffer = 0.002 // degrees, approx 200 meters
+            range_x = range_y = 2 * buffer
+
+            var bbox = `${center_x-range_x/2},${center_y-range_y/2},${center_x+range_x/2},${center_y+range_y/2}`
+            
+            var traffic_url = `https://data.traffic.hereapi.com/v7/flow?locationReferencing=shape&in=bbox:${bbox}&apiKey=${TRAFFIC_API_KEY}` 
+            var traffic_data = await fetch(traffic_url).then(response => response.json());  
+            results = traffic_data.results
+            
+            console.log(results)
+        })();
+    </script>
+  </body>
+</html>

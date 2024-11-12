@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SpeckleCon2024 GIS demo</title>
+  <style type="text/css">
+    html,body{margin:0px;height:100%;width:100%}
+    .container{width:100%;height:100%}
+  </style>
+  <script src="https://unpkg.com/deck.gl@latest/dist.min.js"></script>
+  <body>
+
+    <div id="map" class="container"></div>
+    <script>
+    
+        function rgbaToArgbList(color) {
+            col = color.replace('rgba(','').replace(')','').split(',',4);
+            return [ parseInt(col[0]), parseInt(col[1]), parseInt(col[2]), parseInt(col[3]) ];
+        }
+        
+        function createTileLayer()
+        {
+            var tileLayer = new deck.TileLayer({
+                id: 'TileLayer',
+                data: 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                attribution: '&copy; <a href="http://osm.org">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/">CARTO</a>',
+                maxZoom: 19,
+                minZoom: 0,
+
+                renderSubLayers: props => {
+                    const {boundingBox} = props.tile;
+
+                    return new deck.BitmapLayer(props, {
+                    data: null,
+                    image: props.data,
+                    bounds: [boundingBox[0][0], boundingBox[0][1], boundingBox[1][0], boundingBox[1][1]]
+                    });
+                }
+            })
+            return tileLayer;
+        }
+
+        function createDeckWithExtent(extent){
+            
+            var state= {
+                longitude: extent[0] + (extent[2]-extent[0])/2,
+                latitude: extent[1] + (extent[3]-extent[1])/2,
+                zoom: 18,
+                maxZoom: 22,
+                minZoom: 12,
+                pitch: 60,
+                bearing: 1.469387755102039
+            }
+
+            var newDeckgl = new deck.DeckGL({
+                container: 'map',
+                initialViewState: state,
+                controller: true,
+                layers: []
+            });
+
+            return newDeckgl;
+        }
+
+        function fixVerticalPolygons(speckle_data){
+            var speckle_features = []
+            for (let i = 0; i < speckle_data.features.length; i++) {
+
+                feature = speckle_data.features[i];
+                coords = feature.geometry.coordinates;
+
+                if (!(feature.geometry.type.includes("Polygon"))){   
+                    speckle_features.push({"id": speckle_features.length, "type":"Feature", 
+                        "geometry": {"type": feature.geometry.type, "coordinates":feature.geometry.coordinates}, 
+                        "properties": feature.properties,
+                        "displayProperties": feature.displayProperties });
+                }
+                else {
+                    polygon_all_parts = []
+
+                    // iterate through Polygon Parts
+                    for (let p = 0; p < coords.length; p++) {
+
+                        // check orientation of each PolygonPart, if vertical - shift points slightly
+                        polygon_part = [];
+                        inner = false;
+
+                        for (let c = 0; c < coords[p].length; c++) {
+                            polygon_part_loop = [];
+                            if (c>0){
+                                inner = true;
+                            }
+
+                            sum_orientation = 0;
+                            polygon_pts = coords[p][c]; // usually 3 for Mesh faces
+                            for (let k = 0; k < polygon_pts.length; k++){
+                                index = k + 1
+                                if (k == polygon_pts.length - 1){index = 0}
+                                pt = polygon_pts[k]
+                                pt2 = polygon_pts[index]
+                                sum_orientation += (pt2[0] - pt[0]) * (pt2[1] + pt[1]) 
+                            };
+
+                            createdPolygon = false;
+                            
+                            if (-0.000000001 < sum_orientation && sum_orientation <0.000000001){
+
+                                coords[p][c][0][0] += 0.0000001;
+                                coords[p][c][0][1] += 0.0000001;
+
+                                coords[p][c][1][0] -= 0.0000001;
+                                coords[p][c][1][1] -= 0.0000001;
+
+                                coords[p][c][2][0] += 0.0000001;
+                                coords[p][c][2][1] += 0.0000001;
+
+                                if(polygon_pts.length==3) {
+                                    createdPolygon = true;
+
+                                    multipolygon_coords = coords[p][c];
+                                    polygon_part_loop = multipolygon_coords;
+
+                                    polygon_part = [polygon_part_loop];
+                                    polygon_all_parts.push(polygon_part);                                
+                                            
+                                }
+                                else if (polygon_pts.length==4) {
+                                    createdPolygon = true;
+
+                                    multipolygon_coords = coords[p][c].slice(0,3);
+                                    polygon_part_loop = multipolygon_coords;
+
+                                    polygon_part = [polygon_part_loop];
+                                    polygon_all_parts.push(polygon_part);
+
+                                    /////////
+                                    multipolygon_coords = [coords[p][c][2], coords[p][c][3], coords[p][c][0]];
+                                    polygon_part_loop = multipolygon_coords;
+
+                                    polygon_part = [polygon_part_loop];
+                                    polygon_all_parts.push(polygon_part);
+                                };
+                                
+                            };
+                            if (createdPolygon == false){ // if non-vertical, or vertical with more than 4 vertices
+                                
+                                multipolygon_coords = coords[p][c];
+                                polygon_part_loop = multipolygon_coords;
+
+                                if (inner == false){ 
+                                    polygon_part = [polygon_part_loop];
+                                    polygon_all_parts.push(polygon_part);
+                                    }
+                                else{ 
+                                    polygon_all_parts[polygon_all_parts.length-1].push(polygon_part_loop);
+                                }
+                            }
+                            
+                        };
+                        
+                    };
+                    
+                    new_polygon = {"id": speckle_features.length, "type":"Feature", 
+                            "geometry": {"type": "MultiPolygon", "coordinates":polygon_all_parts}, 
+                            "properties": speckle_data.features[i].properties,
+                            "displayProperties": speckle_data.features[i].displayProperties };
+
+                    new_polygon.displayProperties.lineWidth = 0.05
+                    speckle_features.push(new_polygon);
+
+                } 
+                
+            }
+            speckle_data.features = speckle_features
+        }
+        
+        function createSpeckleLayer(speckle_data) {
+            
+            // Create layer
+            speckle_layer = new deck.GeoJsonLayer({
+                id: `speckle_data`,
+                data: speckle_data,
+                
+                // Styles
+                filled: true,
+                opacity: 0.8,
+                getFillColor: f => rgbaToArgbList(f.displayProperties.color),
+                getLineWidth: f => f.displayProperties.lineWidth,
+                getPointRadius: f => f.displayProperties.radius / 2,
+            })
+            
+            return speckle_layer;
+        }
+       
+        (async () => {
+            // define Speckle Models' URLs
+            var speckle_url = 'https://geo.speckle.systems/speckle/?speckleUrl=https://app.speckle.systems/projects/b973c777fe/models/49aff22443&limit=1000000&datatype=polygons&lon=26.7155164&lat=58.3739412&preserveattributes=true';
+
+            // fetch Speckle data
+            const speckle_data = await fetch(speckle_url, { headers: {'Accept': 'application/geo+json'}}).then(response => response.json());
+            
+            // print received data to console
+            console.log(speckle_data);
+
+            // fix rendering of vertical polygons 
+            fixVerticalPolygons(speckle_data)
+
+            // get spatial extent of Speckle data
+            var extent = speckle_data["extent"] 
+
+            // Create deck.gl map
+            const deckgl = createDeckWithExtent(extent)
+            var tile_layer = createTileLayer()
+            var speckle_layer = createSpeckleLayer(speckle_data)
+            
+            all_layers = [tile_layer, speckle_layer]
+            deckgl.setProps({layers: all_layers})
+
+            ////////// add and animate traffic 
+            // provide your API key to HERE API
+            const TRAFFIC_API_KEY = "41_ea6vX0sH8ec-wbRIEzUKt9tCUbW4rXDUeObNKoUc" // disposable key, replace with yours
+            autoUpdateTrafficLayer(extent, all_layers)
+
+            async function getFeaturesFromTraffic(traffic_url)
+            {
+                traffic_features = []
+                try{
+                    const data = await fetch(traffic_url).then(response => response.json());  
+                    results = data.results
+                    
+                    for (segm in results){
+                        var speed_factor = results[segm].currentFlow.speed / results[segm].currentFlow.freeFlow
+
+                        links = results[segm].location.shape.links
+                        pts_coords = []
+                        for (link_ind in links){
+                            pts = links[link_ind].points
+                            for (pt_ind in pts){
+                                pt = pts[pt_ind]
+                                pts_coords.push([pt.lng, pt.lat, 0])
+                            }
+                        }
+                        lineColor = getTrafficColor(speed_factor);
+
+                        new_line = {"type":"Feature", 
+                                "geometry": {"type": "LineString", "coordinates": pts_coords}, 
+                                "displayProperties": {"color": lineColor } };
+                        traffic_features.push(new_line);
+                    }
+                }
+                catch {}
+                return traffic_features
+            }
+
+            function getTrafficColor(speed_factor){
+                if (speed_factor>1){
+                    speed_factor=1
+                }
+
+                speed_factor = (speed_factor - 0.5)*2 // remap for bigger visual difference
+                if (speed_factor<0){
+                    speed_factor=0.1
+                }
+                
+                color = 'rgba(100,100,100,255)'
+                green = Math.pow( (speed_factor ),0.5) *240
+                blue = 0
+                red = Math.pow( ((1 - speed_factor) ),0.5) *240
+
+                color = `rgba(${Math.round(red)},${Math.round(green)},${Math.round(blue)},255)`
+                return color
+            }
+
+            async function addTrafficLayer(extent, all_layers){
+                console.log("__update traffic")
+
+                // specify the traffic query extend a bit larger than the model extent 
+                buffer = 0.004 // degrees, approx 400 meters
+                range_x = extent[2] - extent[0] + 2* buffer
+                range_y = extent[3] - extent[1] + 2* buffer
+                center_x = extent[0] + (extent[2] - extent[0])/2
+                center_y = extent[1] + (extent[3] - extent[1])/2
+
+                var bbox = `${center_x-range_x/2},${center_y-range_y/2},${center_x+range_x/2},${center_y+range_y/2}`
+                var traffic_url = `https://data.traffic.hereapi.com/v7/flow?locationReferencing=shape&in=bbox:${bbox}&apiKey=${TRAFFIC_API_KEY}` 
+
+                var traffic_features = await getFeaturesFromTraffic(traffic_url);
+                traffic_layer = new deck.GeoJsonLayer({
+                    id: 'traffic_layer',
+                    data: traffic_features,
+                    getLineWidth: f => 6,
+                    getLineColor: f => rgbaToArgbList(f.displayProperties.color),
+                })
+                all_layers.splice(2, 1); // remove old traffic layer
+                all_layers.push(traffic_layer);
+            }
+
+            async function delay( ms, state = null ) {
+                return new Promise( ( resolve, reject ) => {
+                    window.setTimeout( () => resolve( state ), ms );
+                } );
+            }
+
+            async function autoUpdateTrafficLayer(extent, all_layers) {
+                try {
+                    while( true ) {
+                        await addTrafficLayer(extent, all_layers);
+                        deckgl.setProps({layers: all_layers});
+                        await delay( 60000 );
+                    }
+                }
+                catch( err ) {
+                    console.error( err );
+                }                
+            }
+
+        })();
+
+    </script>
+  </body>
+</html>
