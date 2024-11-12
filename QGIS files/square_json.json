@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "square_json",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::27700" } },
+"features": [
+{ "type": "Feature", "properties": { "label": "EPSG:4326, [-10, -10, 10, 10]" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ -10.0, -10.0 ], [ 10.0, -10.0 ], [ 10.0, 10.0 ], [ -10.0, 10.0 ], [ -10.0, -10.0 ] ] ] } }
+]
+}
