@@ -1,1 +1,1 @@
-# speckleCon2024_GIS_workshop
+# Speckle GIS workshops
