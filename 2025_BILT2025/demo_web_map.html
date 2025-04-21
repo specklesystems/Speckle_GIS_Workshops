@@ -45,7 +45,7 @@
             var state= {
                 longitude: extent[0] + (extent[2]-extent[0])/2,
                 latitude: extent[1] + (extent[3]-extent[1])/2,
-                zoom: 20,
+                zoom: 18,
                 maxZoom: 22,
                 minZoom: 12,
                 pitch: 60,
@@ -165,7 +165,7 @@
                             "properties": speckle_data.features[i].properties,
                             "displayProperties": speckle_data.features[i].displayProperties };
 
-                    new_polygon.displayProperties.lineWidth = 0.05
+                    new_polygon.displayProperties.lineWidth = 0.03
                     speckle_features.push(new_polygon);
 
                 } 
@@ -194,7 +194,8 @@
        
         (async () => {
             // define Speckle Models' URLs
-            var speckle_url = 'https://geo.speckle.systems/speckle/?speckleUrl=https://app.speckle.systems/projects/b973c777fe/models/49aff22443&limit=1000000&datatype=polygons&lon=26.7155164&lat=58.3739412&preserveattributes=true';
+            var cad_data = 'https://app.speckle.systems/projects/0c353a2132/models/d9639e9a47';
+            var speckle_url = `https://geo.speckle.systems/speckle/?speckleUrl=${cad_data}&limit=1000000&datatype=polygons&lon=26.7155164&lat=58.3739412&preserveattributes=true`;
 
             // fetch Speckle data
             const speckle_data = await fetch(speckle_url, { headers: {'Accept': 'application/geo+json'}}).then(response => response.json());
