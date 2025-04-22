@@ -22,8 +22,8 @@
         {
             var tileLayer = new deck.TileLayer({
                 id: 'TileLayer',
-                data: 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-                attribution: '&copy; <a href="http://osm.org">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/">CARTO</a>',
+                data: 'https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                attribution: '&copy; <a>ESRI</a>&copy;',
                 maxZoom: 19,
                 minZoom: 0,
 
@@ -268,8 +268,8 @@
 
         (async () => {
             // define Speckle Models' URLs
-            var cad_data = 'https://app.speckle.systems/projects/0c353a2132/models/d9639e9a47';
-            var speckle_url = `https://geo.speckle.systems/speckle/?speckleUrl=${cad_data}&limit=1000000&datatype=polygons&lon=26.7155164&lat=58.3739412&preserveattributes=true`;
+            var cad_data = 'https://app.speckle.systems/projects/61ea7bfb33/models/1eb26cb951';
+            var speckle_url = `https://geo.speckle.systems/speckle/?speckleUrl=${cad_data}&limit=1000000&datatype=polygons&lon=26.7155238&lat=58.3739404&preserveattributes=true`;
 
             // fetch Speckle data
             const speckle_data = await fetch(speckle_url, { headers: {'Accept': 'application/geo+json'}}).then(response => response.json());
